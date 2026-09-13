@@ -1,124 +1,133 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
-	"google.golang.org/genai"
+	"github.com/tmc/langchaingo/llms"
 )
 
-func getToolList() []*genai.Tool {
-	return []*genai.Tool{
+func getToolList() []llms.Tool {
+	return []llms.Tool{
 		{
-			FunctionDeclarations: []*genai.FunctionDeclaration{
-				{
-					Name:        "createNewFile",
-					Description: "Create a new file given a filepath",
-					Parameters: &genai.Schema{
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"filepath": {
-								Type:        genai.TypeString,
-								Description: "The filepath of file to create",
-							},
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "createNewFile",
+				Description: "Create a new file given a filepath",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"filepath": map[string]any{
+							"type":        "string",
+							"description": "The filepath of file to create",
 						},
-						Required: []string{"filepath"},
 					},
+					"required": []string{"filepath"},
 				},
 			},
 		},
 		{
-			FunctionDeclarations: []*genai.FunctionDeclaration{
-				{
-					Name:        "writeFile",
-					Description: "Write to a file given a filepath. This will overwrite the whole file. Make sure to use the read tool first and only call this tool with the full file contents.",
-					Parameters: &genai.Schema{
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"filepath": {
-								Type:        genai.TypeString,
-								Description: "The filepath of file to write",
-							},
-							"contents": {
-								Type:        genai.TypeString,
-								Description: "The full contents of the file",
-							},
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "writeFile",
+				Description: "Write to a file given a filepath. This will overwrite the whole file. Make sure to use the read tool first and only call this tool with the full file contents.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"filepath": map[string]any{
+							"type":        "string",
+							"description": "The filepath of file to write",
 						},
-						Required: []string{"filepath"},
+						"contents": map[string]any{
+							"type":        "string",
+							"description": "The full contents of the file",
+						},
 					},
+					"required": []string{"filepath", "contents"},
 				},
 			},
 		},
 		{
-			FunctionDeclarations: []*genai.FunctionDeclaration{
-				{
-					Name:        "readFile",
-					Description: "Read a file given a filepath",
-					Parameters: &genai.Schema{
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"filepath": {
-								Type:        genai.TypeString,
-								Description: "The filepath of file to read",
-							},
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "readFile",
+				Description: "Read a file given a filepath",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"filepath": map[string]any{
+							"type":        "string",
+							"description": "The filepath of file to read",
 						},
-						Required: []string{"filepath"},
 					},
+					"required": []string{"filepath"},
 				},
 			},
 		},
 		{
-			FunctionDeclarations: []*genai.FunctionDeclaration{
-				{
-					Name:        "pwd",
-					Description: "Get the path of the present working directory",
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "pwd",
+				Description: "Get the path of the present working directory",
+				Parameters: map[string]any{
+					"type":       "object",
+					"properties": map[string]any{},
 				},
 			},
 		},
 		{
-			FunctionDeclarations: []*genai.FunctionDeclaration{
-				{
-					Name:        "ls",
-					Description: "List all of the files in a given directory",
-					Parameters: &genai.Schema{
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"filepath": {
-								Type:        genai.TypeString,
-								Description: "The filepath of the directory to list",
-							},
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "ls",
+				Description: "List all of the files in a given directory",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"filepath": map[string]any{
+							"type":        "string",
+							"description": "The filepath of the directory to list",
 						},
-						Required: []string{"filepath"},
 					},
+					"required": []string{"filepath"},
 				},
 			},
 		},
 	}
 }
 
-func handleFunctionCall(fn *genai.FunctionCall) map[string]any {
+func handleFunctionCall(fn llms.FunctionCall) map[string]any {
 	var result map[string]any = nil
-	args := fn.Args
+	var args struct {
+		filepath string
+		contents string
+	}
+	rawArgs := fn.Arguments
+	err := json.Unmarshal([]byte(rawArgs), &args)
+	if err != nil {
+		log.Fatalf("Error deserializing function call: %v\n", err)
+		return result
+	}
 	switch fn.Name {
 	case "createNewFile":
-		if args["filepath"] != nil {
-			result = createNewFile(args["filepath"].(string))
+		if args.filepath != "" {
+			result = createNewFile(args.filepath)
 		}
 	case "writeFile":
-		if args["filepath"] != nil {
-			result = writeFile(args["filepath"].(string), args["contents"].(string))
+		if args.filepath != "" {
+			result = writeFile(args.filepath, args.contents)
 		}
 	case "readFile":
-		if args["filepath"] != nil {
-			result = readFile(args["filepath"].(string))
+		if args.filepath != "" {
+			result = readFile(args.filepath)
 		}
 	case "pwd":
 		result = pwd()
 	case "ls":
-		if args["filepath"] != nil {
-			result = ls(args["filepath"].(string))
+		if args.filepath != "" {
+			result = ls(args.filepath)
 		}
 	default:
 		result = map[string]any{"success": false, "error": fmt.Sprintf("No function called %s", fn.Name)}

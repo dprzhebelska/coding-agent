@@ -26,6 +26,8 @@ func main() {
 
 	log.SetOutput(f)
 
+	log.Println("Starting bubble tea")
+
 	ctx := context.Background()
 	p := tea.NewProgram(initialModel(ctx))
 	if _, err := p.Run(); err != nil {
@@ -166,7 +168,14 @@ func (m model) View() tea.View {
 
 func (m model) agentReponseCmd(prompt string) tea.Cmd {
 	return func() tea.Msg {
-		resp := m.agent.makeResponse(prompt, m.ctx)
+		resp, err := m.agent.makeResponse(prompt, m.ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "429") {
+				resp = "Rate limit exceeded, please wait a few minutes and try again"
+			} else {
+				resp = "Model encountered an error... please retry"
+			}
+		}
 		return agentResponse(resp)
 	}
 }

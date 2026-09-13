@@ -25,6 +25,7 @@ A simple agent that can uses google gemini and has access to read, write files a
 - Interface enhancements
 - Thinking
 - Save conversation history
+- streaming
 
 ## Bugs
 - hitting the API rate limits causes system exit instead of just printing out an error

@@ -1,0 +1,5 @@
+{
+    "apiKey": "GEMINI_API_KEY",
+    "model": "gemini-3.6-flash",
+    "modelFamily": "google"
+}

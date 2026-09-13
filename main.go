@@ -34,13 +34,14 @@ func main() {
 }
 
 type model struct {
-	viewport    viewport.Model
-	messages    []string
-	textarea    textarea.Model
-	senderStyle lipgloss.Style
-	agent       *agent
-	ctx         context.Context
-	err         error
+	viewport         viewport.Model
+	altscreenEnabled bool
+	messages         []string
+	textarea         textarea.Model
+	senderStyle      lipgloss.Style
+	agent            *agent
+	ctx              context.Context
+	err              error
 }
 
 type agentResponse string
@@ -75,13 +76,14 @@ Type a prompt and press Enter to send.`, agent.model))
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	return model{
-		textarea:    ta,
-		messages:    []string{},
-		viewport:    vp,
-		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		ctx:         ctx,
-		agent:       agent,
-		err:         nil,
+		textarea:         ta,
+		altscreenEnabled: true,
+		messages:         []string{},
+		viewport:         vp,
+		senderStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+		ctx:              ctx,
+		agent:            agent,
+		err:              nil,
 	}
 }
 
@@ -116,6 +118,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			fmt.Println(m.textarea.Value())
+			m.altscreenEnabled = false
 			return m, tea.Quit
 		case "enter":
 			message := m.textarea.Value()
@@ -123,6 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if message == "exit" || message == "bye" {
+				m.altscreenEnabled = false
 				return m, tea.Quit
 			}
 			m.messages = append(m.messages, m.senderStyle.Render("You: ")+message)
@@ -156,7 +160,7 @@ func (m model) View() tea.View {
 		c.Y += lipgloss.Height(viewportView)
 	}
 	v.Cursor = c
-	v.AltScreen = true
+	v.AltScreen = m.altscreenEnabled
 	return v
 }
 

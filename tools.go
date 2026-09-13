@@ -101,8 +101,8 @@ func getToolList() []llms.Tool {
 func handleFunctionCall(fn llms.FunctionCall) map[string]any {
 	var result map[string]any = nil
 	var args struct {
-		filepath string
-		contents string
+		Filepath string `json:"filepath"`
+		Contents string `json:"contents"`
 	}
 	rawArgs := fn.Arguments
 	err := json.Unmarshal([]byte(rawArgs), &args)
@@ -110,24 +110,25 @@ func handleFunctionCall(fn llms.FunctionCall) map[string]any {
 		log.Fatalf("Error deserializing function call: %v\n", err)
 		return result
 	}
+	log.Print(fn.Name, args)
 	switch fn.Name {
 	case "createNewFile":
-		if args.filepath != "" {
-			result = createNewFile(args.filepath)
+		if args.Filepath != "" {
+			result = createNewFile(args.Filepath)
 		}
 	case "writeFile":
-		if args.filepath != "" {
-			result = writeFile(args.filepath, args.contents)
+		if args.Filepath != "" {
+			result = writeFile(args.Filepath, args.Contents)
 		}
 	case "readFile":
-		if args.filepath != "" {
-			result = readFile(args.filepath)
+		if args.Filepath != "" {
+			result = readFile(args.Filepath)
 		}
 	case "pwd":
 		result = pwd()
 	case "ls":
-		if args.filepath != "" {
-			result = ls(args.filepath)
+		if args.Filepath != "" {
+			result = ls(args.Filepath)
 		}
 	default:
 		result = map[string]any{"success": false, "error": fmt.Sprintf("No function called %s", fn.Name)}
@@ -186,3 +187,7 @@ func pwd() map[string]any {
 	}
 	return map[string]any{"success": true, "directory": fmt.Sprint(directory)}
 }
+
+// func main() {
+// 	fmt.Print(ls("/home/daria/Documents/go/coding-agent"))
+// }

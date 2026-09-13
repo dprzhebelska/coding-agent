@@ -9,10 +9,11 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
+	"github.com/tmc/langchaingo/llms/openai"
 )
 
 type agent struct {
-	client         *googleai.GoogleAI
+	llm            llms.Model
 	toolList       []llms.Tool
 	messageHistory []llms.MessageContent
 	model          string
@@ -22,6 +23,7 @@ type modelConfig struct {
 	ApiKey      string `json:"apiKey"`
 	Model       string `json:"model"`
 	ModelFamily string `json:"modelFamily"`
+	URL         string `json:"url"`
 }
 
 func newAgent(ctx context.Context) *agent {
@@ -36,10 +38,19 @@ func newAgent(ctx context.Context) *agent {
 
 	// todo: initialize client based on model family
 
-	client, err := googleai.New(ctx, googleai.WithAPIKey(apiKey), googleai.WithDefaultModel(model))
-
-	if err != nil {
-		log.Fatalln("Error creating new client: ", err)
+	var llm llms.Model
+	var err error
+	switch loadedModelConfig.ModelFamily {
+	case "google":
+		llm, err = googleai.New(ctx, googleai.WithAPIKey(apiKey), googleai.WithDefaultModel(model))
+		if err != nil {
+			log.Fatalln("Error creating new google llm: ", err)
+		}
+	case "openai":
+		llm, err = openai.New(openai.WithBaseURL(loadedModelConfig.URL), openai.WithToken(apiKey), openai.WithModel(model))
+		if err != nil {
+			log.Fatalln("Error creating new openai llm: ", err)
+		}
 	}
 
 	systemPrompt := "You are a simple coding agent"
@@ -48,7 +59,7 @@ func newAgent(ctx context.Context) *agent {
 		llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
 	}
 
-	a := &agent{client: client, toolList: getToolList(), messageHistory: history, model: model}
+	a := &agent{llm: llm, toolList: getToolList(), messageHistory: history, model: model}
 
 	log.Println("Agent initialized!")
 
@@ -86,9 +97,7 @@ func debugPrint[T any](r *T) {
 func (a *agent) makeResponse(prompt string, ctx context.Context) (string, error) {
 	log.Println("Received prompt: ", prompt)
 	a.messageHistory = append(a.messageHistory, llms.TextParts(llms.ChatMessageTypeHuman, prompt))
-	log.Println("history: ", a.messageHistory)
-	log.Println("toolList: ", a.toolList)
-	response, err := a.client.GenerateContent(ctx, a.messageHistory, llms.WithTools(a.toolList))
+	response, err := a.llm.GenerateContent(ctx, a.messageHistory, llms.WithTools(a.toolList))
 	if err != nil {
 		log.Printf("Error calling model: %v\n", err)
 		return "", err
@@ -97,6 +106,10 @@ func (a *agent) makeResponse(prompt string, ctx context.Context) (string, error)
 
 	for range 10 {
 		debugPrint(response)
+
+		if response == nil || len(response.Choices) == 0 {
+			return finalResponse, nil
+		}
 
 		respChoice := response.Choices[0]
 		content := respChoice.Content
@@ -130,7 +143,7 @@ func (a *agent) makeResponse(prompt string, ctx context.Context) (string, error)
 			}
 			a.messageHistory = append(a.messageHistory, toolResponse)
 		}
-		response, err = a.client.GenerateContent(ctx, a.messageHistory, llms.WithTools(a.toolList))
+		response, err = a.llm.GenerateContent(ctx, a.messageHistory, llms.WithTools(a.toolList))
 	}
 
 	return "", fmt.Errorf("reached the end of the loop")

@@ -1,5 +1,6 @@
 {
-    "apiKey": "GEMINI_API_KEY",
-    "model": "gemini-3.6-flash",
-    "modelFamily": "google"
+    "apiKey": "OPEN_ROUTER_KEY",
+    "url": "https://openrouter.ai/api/v1",
+    "model": "openrouter/free",
+    "modelFamily": "openai"
 }

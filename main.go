@@ -43,10 +43,15 @@ type model struct {
 	senderStyle      lipgloss.Style
 	agent            *agent
 	ctx              context.Context
+	title            string
 	err              error
 }
 
-type agentResponse string
+// agentResponse now carries both the response text and any title update.
+type agentResponse struct {
+	Text  string
+	Title string
+}
 
 func initialModel(ctx context.Context) model {
 	ta := textarea.New()
@@ -55,7 +60,7 @@ func initialModel(ctx context.Context) model {
 	ta.Focus()
 
 	ta.Prompt = "┃ "
-	ta.CharLimit = 500
+	ta.CharLimit = 1000
 
 	ta.SetWidth(30)
 	ta.SetHeight(3)
@@ -74,6 +79,7 @@ func initialModel(ctx context.Context) model {
 Type a prompt and press Enter to send.`, agent.model))
 	vp.KeyMap.Left.SetEnabled(false)
 	vp.KeyMap.Right.SetEnabled(false)
+	vp.MouseWheelEnabled = true
 
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
@@ -85,6 +91,7 @@ Type a prompt and press Enter to send.`, agent.model))
 		senderStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		ctx:              ctx,
 		agent:            agent,
+		title:            "New conversation",
 		err:              nil,
 	}
 }
@@ -106,10 +113,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.viewport.GotoBottom()
 	case agentResponse:
-		if msg == "" {
+		if msg.Text == "" {
 			return m, m.agentReponseCmd("")
 		}
-		m.messages = append(m.messages, m.senderStyle.Render("Agent: ")+string(msg))
+		m.messages = append(m.messages, m.senderStyle.Render("Agent: ")+msg.Text)
+		if msg.Title != "" {
+			m.title = msg.Title
+		}
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width()).Render(strings.Join(m.messages, "\n")))
 		return m, nil
 	case tea.PasteMsg:
@@ -151,7 +161,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+
+	return m, cmd
 }
 
 func (m model) View() tea.View {
@@ -163,12 +176,14 @@ func (m model) View() tea.View {
 	}
 	v.Cursor = c
 	v.AltScreen = m.altscreenEnabled
+	v.MouseMode = tea.MouseModeCellMotion
+	v.WindowTitle = fmt.Sprintf("Coding agent - %s", m.title)
 	return v
 }
 
 func (m model) agentReponseCmd(prompt string) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := m.agent.makeResponse(prompt, m.ctx)
+		resp, tuiUpdates, err := m.agent.makeResponse(prompt, m.ctx)
 		if err != nil {
 			if strings.Contains(err.Error(), "429") {
 				resp = "Rate limit exceeded, please wait a few minutes and try again"
@@ -176,6 +191,13 @@ func (m model) agentReponseCmd(prompt string) tea.Cmd {
 				resp = "Model encountered an error... please retry"
 			}
 		}
-		return agentResponse(resp)
+		var title string
+		for key, val := range tuiUpdates {
+			if key == "title" && val != "" {
+				log.Printf("Title update received: %s", val)
+				title = val.(string)
+			}
+		}
+		return agentResponse{Text: resp, Title: title}
 	}
 }

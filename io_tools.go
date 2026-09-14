@@ -10,12 +10,12 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
-func getToolList() []llms.Tool {
+func getIoToolList() []llms.Tool {
 	return []llms.Tool{
 		{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
-				Name:        "createNewFile",
+				Name:        "ioCreateNewFile",
 				Description: "Create a new file given a filepath",
 				Parameters: map[string]any{
 					"type": "object",
@@ -32,7 +32,7 @@ func getToolList() []llms.Tool {
 		{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
-				Name:        "writeFile",
+				Name:        "ioWriteFile",
 				Description: "Write to a file given a filepath. This will overwrite the whole file. Make sure to use the read tool first and only call this tool with the full file contents.",
 				Parameters: map[string]any{
 					"type": "object",
@@ -53,8 +53,8 @@ func getToolList() []llms.Tool {
 		{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
-				Name:        "readFile",
-				Description: "Read a file given a filepath",
+				Name:        "ioReadFile",
+				Description: "Read a file given a filepath. Make sure to provide the correct full path.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -70,7 +70,7 @@ func getToolList() []llms.Tool {
 		{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
-				Name:        "pwd",
+				Name:        "ioPwd",
 				Description: "Get the path of the present working directory",
 				Parameters: map[string]any{
 					"type":       "object",
@@ -81,7 +81,7 @@ func getToolList() []llms.Tool {
 		{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
-				Name:        "ls",
+				Name:        "ioLs",
 				Description: "List all of the files in a given directory",
 				Parameters: map[string]any{
 					"type": "object",
@@ -98,8 +98,8 @@ func getToolList() []llms.Tool {
 	}
 }
 
-func handleFunctionCall(fn llms.FunctionCall) map[string]any {
-	var result map[string]any = nil
+func handleIoFunctionCall(fn llms.FunctionCall) map[string]any {
+	var result map[string]any
 	var args struct {
 		Filepath string `json:"filepath"`
 		Contents string `json:"contents"`
@@ -107,42 +107,56 @@ func handleFunctionCall(fn llms.FunctionCall) map[string]any {
 	rawArgs := fn.Arguments
 	err := json.Unmarshal([]byte(rawArgs), &args)
 	if err != nil {
-		log.Fatalf("Error deserializing function call: %v\n", err)
-		return result
+		log.Printf("Error deserializing function call: %v\n", err)
+		return map[string]any{"success": false, "error": err}
 	}
 	log.Print(fn.Name, args)
 	switch fn.Name {
-	case "createNewFile":
+	case "ioCreateNewFile":
 		if args.Filepath != "" {
 			result = createNewFile(args.Filepath)
+		} else {
+			result = map[string]any{"success": false, "error": "filepath is required"}
 		}
-	case "writeFile":
+	case "ioWriteFile":
 		if args.Filepath != "" {
 			result = writeFile(args.Filepath, args.Contents)
+		} else {
+			result = map[string]any{"success": false, "error": "filepath is required"}
 		}
-	case "readFile":
+	case "ioReadFile":
 		if args.Filepath != "" {
 			result = readFile(args.Filepath)
+		} else {
+			result = map[string]any{"success": false, "error": "filepath is required — please provide the correct full path to the file"}
 		}
-	case "pwd":
+	case "ioPwd":
 		result = pwd()
-	case "ls":
+	case "ioLs":
 		if args.Filepath != "" {
 			result = ls(args.Filepath)
+		} else {
+			result = map[string]any{"success": false, "error": "filepath is required"}
 		}
 	default:
 		result = map[string]any{"success": false, "error": fmt.Sprintf("No function called %s", fn.Name)}
 	}
-	log.Printf("Function response: %v\n", result)
 	return result
 }
 
 func createNewFile(fileName string) map[string]any {
-	_, err := os.Create(fileName)
+	err := os.MkdirAll(fileName, os.ModePerm)
 	if err != nil {
-		log.Fatalln("Error creating file: ", fileName, err)
+		fmt.Printf("Error creating directory: %v\n", err)
 		return map[string]any{"success": false, "error": err}
 	}
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating file: ", fileName, err)
+		return map[string]any{"success": false, "error": err}
+	}
+	defer file.Close()
 	return map[string]any{"success": true}
 }
 
@@ -155,16 +169,19 @@ func writeFile(fileName string, contents string) map[string]any {
 	err = os.WriteFile(full_filepath, bytes, 0644)
 
 	if err != nil {
-		log.Fatalln("Error writing file: ", full_filepath, err)
+		log.Println("Error writing file: ", full_filepath, err)
 		return map[string]any{"success": false, "error": err}
 	}
 	return map[string]any{"success": true}
 }
 
 func readFile(fileName string) map[string]any {
+	if fileName == "" {
+		return map[string]any{"success": false, "error": "filepath is required — please provide the correct full path to the file"}
+	}
 	bytes, err := os.ReadFile(fileName)
 	if err != nil {
-		log.Fatalln("Error reading file: ", fileName, err)
+		log.Println("Error reading file: ", fileName, err)
 		return map[string]any{"success": false, "error": err}
 	}
 	return map[string]any{"success": true, "contents": string(bytes)}
@@ -173,7 +190,7 @@ func readFile(fileName string) map[string]any {
 func ls(path string) map[string]any {
 	files, err := os.ReadDir(path)
 	if err != nil {
-		log.Fatalln("Error listing path: ", path, err)
+		log.Println("Error listing path: ", path, err)
 		return map[string]any{"success": false, "error": err}
 	}
 	return map[string]any{"success": true, "file_list": files}
@@ -182,7 +199,7 @@ func ls(path string) map[string]any {
 func pwd() map[string]any {
 	directory, err := os.Getwd()
 	if err != nil {
-		log.Fatalln("Error getting pwd: ", err)
+		log.Println("Error getting pwd: ", err)
 		return map[string]any{"success": false, "error": err}
 	}
 	return map[string]any{"success": true, "directory": fmt.Sprint(directory)}

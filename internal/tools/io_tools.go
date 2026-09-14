@@ -1,4 +1,4 @@
-package main
+package tools
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
-func getIoToolList() []llms.Tool {
+func GetIoToolList() []llms.Tool {
 	return []llms.Tool{
 		{
 			Type: "function",
@@ -98,7 +98,7 @@ func getIoToolList() []llms.Tool {
 	}
 }
 
-func handleIoFunctionCall(fn llms.FunctionCall) map[string]any {
+func HandleIoFunctionCall(fn llms.FunctionCall) map[string]any {
 	var result map[string]any
 	var args struct {
 		Filepath string `json:"filepath"`

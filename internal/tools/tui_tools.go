@@ -1,4 +1,4 @@
-package main
+package tools
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
-func getTuiToolList() []llms.Tool {
+func GetTuiToolList() []llms.Tool {
 	return []llms.Tool{
 		{
 			Type: "function",
@@ -30,7 +30,7 @@ func getTuiToolList() []llms.Tool {
 	}
 }
 
-func handleTuiFunctionCall(fn llms.FunctionCall) (map[string]any, map[string]any) {
+func HandleTuiFunctionCall(fn llms.FunctionCall) (map[string]any, map[string]any) {
 	var result map[string]any
 	var tuiUpdate map[string]any
 	var args struct {

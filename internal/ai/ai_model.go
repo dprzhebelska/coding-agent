@@ -1,4 +1,4 @@
-package main
+package ai
 
 import (
 	"context"
@@ -9,16 +9,17 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dprzhebelska/coding-agent/internal/tools"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/openai"
 )
 
-type agent struct {
+type Agent struct {
 	llm            llms.Model
 	toolList       []llms.Tool
 	messageHistory []llms.MessageContent
-	model          string
+	Model          string
 }
 
 type modelConfig struct {
@@ -28,7 +29,7 @@ type modelConfig struct {
 	URL         string `json:"url"`
 }
 
-func newAgent(ctx context.Context) *agent {
+func NewAgent(ctx context.Context) *Agent {
 	log.Println("Initializing agent...")
 
 	loadedModelConfig, _ := loadConfig()
@@ -61,7 +62,7 @@ func newAgent(ctx context.Context) *agent {
 		llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
 	}
 
-	a := &agent{llm: llm, toolList: append(getIoToolList(), getTuiToolList()...), messageHistory: history, model: model}
+	a := &Agent{llm: llm, toolList: append(tools.GetIoToolList(), tools.GetTuiToolList()...), messageHistory: history, Model: model}
 
 	log.Println("Agent initialized!")
 
@@ -96,7 +97,7 @@ func debugPrint[T any](r *T) {
 	log.Print("Received response: ", string(response))
 }
 
-func (a *agent) makeResponse(prompt string, ctx context.Context) (string, map[string]any, error) {
+func (a *Agent) MakeResponse(prompt string, ctx context.Context) (string, map[string]any, error) {
 	log.Println("Received prompt: ", prompt)
 	a.messageHistory = append(a.messageHistory, llms.TextParts(llms.ChatMessageTypeHuman, prompt))
 	response, err := a.llm.GenerateContent(ctx, a.messageHistory, llms.WithTools(a.toolList))
@@ -135,10 +136,10 @@ func (a *agent) makeResponse(prompt string, ctx context.Context) (string, map[st
 		var funcCallResponse map[string]any
 		for _, tc := range respChoice.ToolCalls {
 			if strings.HasPrefix(tc.FunctionCall.Name, "io") {
-				funcCallResponse = handleIoFunctionCall(*tc.FunctionCall)
+				funcCallResponse = tools.HandleIoFunctionCall(*tc.FunctionCall)
 			} else if strings.HasPrefix(tc.FunctionCall.Name, "tui") {
 				var tuiUpdate map[string]any
-				funcCallResponse, tuiUpdate = handleTuiFunctionCall(*tc.FunctionCall)
+				funcCallResponse, tuiUpdate = tools.HandleTuiFunctionCall(*tc.FunctionCall)
 				maps.Copy(tuiUpdates, tuiUpdate)
 				log.Printf("tui updates: %v, %v", tuiUpdate, tuiUpdates)
 			}

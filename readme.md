@@ -21,16 +21,17 @@ A simple agent that can uses google gemini and has access to read, write files a
 ![screenshot](readme_assets/initial%20gemini%20example.png)
 
 ## Todo
-- Update the terminal title with the conversation summary
-- Make the terminal scrollable
+- Move system prompt to its own file
+- Add guardrails/blocks from editing files without permission
 - Add skills
+- Add AGENT.md support
 - Add hooks
+- Streaming
 - Support for MCP servers
-- More tools: diff write, exit, grep...
-- Interface enhancements
+- More tools: gh, diff write, exit, grep...
+- Interface enhancements - select, shift+enter, copy/paste doesn't take up the whole terminal
 - Thinking
 - Save conversation history
-- streaming
 
 ## Bugs
-- 
+- terminal title update doesn't actually update the title

@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/dprzhebelska/coding-agent/internal/tools"
@@ -56,13 +57,17 @@ func NewAgent(ctx context.Context) *Agent {
 		}
 	}
 
-	systemPrompt := "You are a simple coding agent. After you have exchanged a few messages with the user, use the tuiUpdateTitle tool to update the title of the session with a summary of the conversation. If the conversation direction changes, update the title then too. Don't update any files unless the user tells you to. Ask for permission first."
+	skillList, _ := tools.GetSkillList()
+
+	systemPrompt := `You are a simple coding agent. After you have exchanged a few messages with the user, use the tuiUpdateTitle tool to update the title of the session with a summary of the conversation. If the conversation direction changes, update the title then too. 
+Don't update any files unless the user tells you to. Ask for permission first.
+You have the following skills: ` + fmt.Sprint(skillList) + `. Use the loadSkill tool to use a skill given its filepath`
 
 	history := []llms.MessageContent{
 		llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
 	}
 
-	a := &Agent{llm: llm, toolList: append(tools.GetIoToolList(), tools.GetTuiToolList()...), messageHistory: history, Model: model}
+	a := &Agent{llm: llm, toolList: slices.Concat(tools.GetIoToolList(), tools.GetTuiToolList(), tools.GetSkillToolList()), messageHistory: history, Model: model}
 
 	log.Println("Agent initialized!")
 
@@ -142,6 +147,8 @@ func (a *Agent) MakeResponse(prompt string, ctx context.Context) (string, map[st
 				funcCallResponse, tuiUpdate = tools.HandleTuiFunctionCall(*tc.FunctionCall)
 				maps.Copy(tuiUpdates, tuiUpdate)
 				log.Printf("tui updates: %v, %v", tuiUpdate, tuiUpdates)
+			} else if strings.HasPrefix(tc.FunctionCall.Name, "skill") {
+				funcCallResponse = tools.HandleSkillFunctionCall(*tc.FunctionCall)
 			}
 
 			toolResponse := llms.MessageContent{

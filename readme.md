@@ -23,7 +23,7 @@ A simple agent that can uses google gemini and has access to read, write files a
 ## Todo
 - Move system prompt to its own file
 - Add guardrails/blocks from editing files without permission
-- Add skills
+- Clean up Skills
 - Add AGENT.md support
 - Add hooks
 - Streaming

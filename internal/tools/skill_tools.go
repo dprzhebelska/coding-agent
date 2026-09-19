@@ -1,17 +1,14 @@
 package tools
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
-	"github.com/yuin/goldmark"
-	meta "github.com/yuin/goldmark-meta"
-
-	"github.com/yuin/goldmark/parser"
+	"gopkg.in/yaml.v2"
 )
 
 const skillDirectory string = "./skills"
@@ -35,42 +32,49 @@ func GetSkillToolList() []llms.Tool {
 				},
 			},
 		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "skillListSkills",
+				Description: "List all available skills",
+				Parameters: map[string]any{
+					"type":       "object",
+					"properties": map[string]any{},
+				},
+			},
+		},
 	}
 }
 
-func GetSkillList() ([]map[string]any, error) {
+func GetSkillList() (string, error) {
 
 	skillFiles, err := os.ReadDir(skillDirectory)
 	if err != nil {
 		log.Println("Error listing path: ", skillDirectory, err)
-		return nil, err
+		return "", err
 	}
 
-	res := make([]map[string]any, len(skillFiles))
+	res := make([]map[string]any, 0, len(skillFiles))
 
 	for _, skillFile := range skillFiles {
 		content, err := os.ReadFile(skillDirectory + "/" + skillFile.Name())
 		if err != nil {
 			log.Println("Error reading file: ", skillFile, err)
-			return nil, err
+			return "", err
 		}
-		md := goldmark.New(
-			goldmark.WithExtensions(
-				meta.Meta,
-			),
-		)
-
-		var buf bytes.Buffer
-		context := parser.NewContext()
-		if err := md.Convert(content, &buf, parser.WithContext(context)); err != nil {
-			log.Fatal(err)
+		meta, err := parseFrontmatter(string(content))
+		if err != nil {
+			log.Println("Error parsing frontmatter: ", skillFile.Name(), err)
+			continue
 		}
-
-		skillMap := meta.Get(context)
-		skillMap["filename"] = skillFile.Name()
-		res = append(res, skillMap)
+		meta["filename"] = skillFile.Name()
+		res = append(res, meta)
 	}
-	return res, nil
+	readable_response := "Here is a list of available skills: \n"
+	for _, skill := range res {
+		readable_response += fmt.Sprintf("- %s: %s\n    - filepath: %s", skill["name"], skill["description"], skill["filename"])
+	}
+	return readable_response, nil
 }
 
 func HandleSkillFunctionCall(fn llms.FunctionCall) map[string]any {
@@ -87,7 +91,20 @@ func HandleSkillFunctionCall(fn llms.FunctionCall) map[string]any {
 	switch fn.Name {
 	case "skillLoadSkill":
 		if args.Filepath != "" {
-			content, _ := loadSkill(args.Filepath)
+			content, err := loadSkill(args.Filepath)
+			if err != nil {
+				result = map[string]any{"success": false, "error": "error calling tool"}
+				log.Print("error calling loadskill tool: ", err)
+			} else {
+				result = map[string]any{"success": true, "content": content}
+			}
+		}
+	case "skillListSkills":
+		content, _ := GetSkillList()
+		if err != nil {
+			result = map[string]any{"success": false, "error": "error calling tool"}
+			log.Print("error calling getSkill tool: ", err)
+		} else {
 			result = map[string]any{"success": true, "content": content}
 		}
 	default:
@@ -102,18 +119,34 @@ func loadSkill(filename string) (string, error) {
 		log.Println("Error reading file: ", filename, err)
 		return "", err
 	}
-	md := goldmark.New(
-		goldmark.WithExtensions(
-			meta.Meta,
-		),
-	)
-
-	var buf bytes.Buffer
-	context := parser.NewContext()
-	if err := md.Convert(content, &buf, parser.WithContext(context)); err != nil {
-		log.Fatal(err)
+	// Strip YAML frontmatter
+	text := string(content)
+	if strings.HasPrefix(text, "---") {
+		end := strings.Index(text[3:], "---")
+		if end != -1 {
+			text = text[3+end+3:]
+		}
 	}
-
-	skillBody := buf.String()
-	return skillBody, nil
+	return strings.TrimSpace(text), nil
 }
+
+func parseFrontmatter(content string) (map[string]any, error) {
+	if !strings.HasPrefix(content, "---") {
+		return nil, fmt.Errorf("no frontmatter found")
+	}
+	end := strings.Index(content[3:], "---")
+	if end == -1 {
+		return nil, fmt.Errorf("unterminated frontmatter")
+	}
+	yamlContent := content[3 : 3+end]
+
+	var meta map[string]any
+	if err := yaml.Unmarshal([]byte(yamlContent), &meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// func main() {
+// 	fmt.Print(loadSkill("SWEDEN.md"))
+// }

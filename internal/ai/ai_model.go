@@ -57,11 +57,7 @@ func NewAgent(ctx context.Context) *Agent {
 		}
 	}
 
-	skillList, _ := tools.GetSkillList()
-
-	systemPrompt := `You are a simple coding agent. After you have exchanged a few messages with the user, use the tuiUpdateTitle tool to update the title of the session with a summary of the conversation. If the conversation direction changes, update the title then too. 
-Don't update any files unless the user tells you to. Ask for permission first.
-You have the following skills: ` + fmt.Sprint(skillList) + `. Use the loadSkill tool to use a skill given its filepath`
+	systemPrompt, _ := loadSystemPrompt()
 
 	history := []llms.MessageContent{
 		llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
@@ -92,8 +88,21 @@ func loadConfig() (modelConfig, error) {
 	return loadedConfig, nil
 }
 
+func loadSystemPrompt() (string, error) {
+	content, err := os.ReadFile("./internal/ai/system_prompt.md")
+	if err != nil {
+		log.Println("Error reading system_prompt file: ", err)
+		return "", err
+	}
+	text := string(content)
+	return strings.TrimSpace(text), nil
+}
+
 func debugPrint[T any](r *T) {
 	// Marshal the result to JSON.
+	if r == nil {
+		return
+	}
 	response, err := json.MarshalIndent(*r, "", "  ")
 	if err != nil {
 		log.Println("Error printing: ", err)

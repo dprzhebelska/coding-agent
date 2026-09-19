@@ -16,22 +16,20 @@ export API_KEY="<your api key>"
 make run
 ```
 
-## Initial version with gemini
-A simple agent that can uses google gemini and has access to read, write files and see the directory. 
-![screenshot](readme_assets/initial%20gemini%20example.png)
+## Using skills
+Skills are defined in the skills/ directory and must include a name and description in their header. The skills are dynamically loaded, so you can add skills while the model is running and ask it to reload its skill list.
+![screenshot](readme_assets/skills2.png)
 
 ## Todo
-- Move system prompt to its own file
 - Add guardrails/blocks from editing files without permission
-- Clean up Skills
 - Add AGENT.md support
 - Add hooks
 - Streaming
 - Support for MCP servers
 - More tools: gh, diff write, exit, grep...
-- Interface enhancements - select, shift+enter, copy/paste doesn't take up the whole terminal
+- Interface enhancements - select, shift+enter, copy/paste doesn't take up the whole terminal, show when a skill is in use, show when a model is processing
 - Thinking
-- Save conversation history
+- Save conversation history + resume conversations
 
 ## Bugs
-- terminal title update doesn't actually update the title
+- 

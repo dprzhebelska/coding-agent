@@ -7,8 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.9
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/tmc/langchaingo v0.1.14
-	github.com/yuin/goldmark v1.8.6
-	github.com/yuin/goldmark-meta v1.1.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -64,5 +63,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250122153221-138b5a5a4fd4 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.3 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

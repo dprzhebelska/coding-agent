@@ -17,11 +17,20 @@ type agentResponse struct {
 }
 
 func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if len(m.messages) > 1 {
+		m.toggleIntialScreen = false
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.Viewport.SetWidth(msg.Width)
-		m.textarea.SetWidth(msg.Width)
-		m.Viewport.SetHeight(msg.Height - m.textarea.Height())
+		m.windowHeight = msg.Height
+		m.windowWidth = msg.Width
+		m.Viewport.SetWidth(msg.Width - 2) // account for border
+		m.textarea.SetWidth(msg.Width - 2) // account for border
+		m.Viewport.SetHeight(msg.Height - m.textarea.Height() - 2)
+
+		if m.toggleIntialScreen {
+			m.Viewport.SetContent(renderStartUpScreen(m.windowWidth-2, m.agent.Model, m.currentDirectory))
+		}
 
 		if len(m.messages) > 0 {
 			// Wrap content before setting it.
@@ -32,7 +41,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Text == "" {
 			return m, m.agentReponseCmd("")
 		}
-		m.messages = append(m.messages, m.senderStyle.Render("Agent: ")+msg.Text)
+		m.messages = append(m.messages, m.agentStyle.Render("Agent: ")+msg.Text)
 		// if msg.Title != "" {
 		// 	m.title = msg.Title
 		// }
@@ -48,6 +57,11 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.textarea.Value())
 			m.altscreenEnabled = false
 			return m, tea.Quit
+		case "ctrl+j":
+			var cmd tea.Cmd
+			m.textarea.InsertString("\n")
+			m.Viewport.SetHeight(m.windowHeight - m.textarea.Height() - 2)
+			return m, cmd
 		case "enter":
 			message := m.textarea.Value()
 			if message == "" {
@@ -67,6 +81,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Send all other keypresses to the textarea.
 			var cmd tea.Cmd
 			m.textarea, cmd = m.textarea.Update(msg)
+			m.Viewport.SetHeight(m.windowHeight - m.textarea.Height() - 2)
 			return m, cmd
 		}
 

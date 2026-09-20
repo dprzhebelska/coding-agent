@@ -12,60 +12,105 @@ import (
 )
 
 type MainModel struct {
-	Viewport         viewport.Model
-	altscreenEnabled bool
-	messages         []string
-	textarea         textarea.Model
-	senderStyle      lipgloss.Style
-	agent            *ai.Agent
-	ctx              context.Context
-	title            string
-	err              error
+	windowHeight       int
+	windowWidth        int
+	toggleIntialScreen bool
+	Viewport           viewport.Model
+	altscreenEnabled   bool
+	messages           []string
+	textarea           textarea.Model
+	senderStyle        lipgloss.Style
+	agentStyle         lipgloss.Style
+	agent              *ai.Agent
+	currentDirectory   string
+	ctx                context.Context
+	title              string
+	err                error
 }
 
 func InitialModel(ctx context.Context) *MainModel {
+	agent := ai.NewAgent(ctx)
+
+	currentDir, err := getCurrentDirWithTilde()
+	if err != nil {
+		currentDir = ""
+	}
+
 	ta := textarea.New()
-	ta.Placeholder = "Send a message..."
+	ta.Placeholder = ""
+	ta.DynamicHeight = true
+	ta.MinHeight = 1
+	ta.MaxHeight = 15
+	ta.KeyMap.InsertNewline.SetEnabled(true)
 	ta.SetVirtualCursor(false)
 	ta.Focus()
+	ta.Prompt = ""
 
-	ta.Prompt = "┃ "
 	ta.CharLimit = 1000
 
-	ta.SetWidth(30)
-	ta.SetHeight(3)
-
-	// Remove cursor line styling
-	s := ta.Styles()
-	s.Focused.CursorLine = lipgloss.NewStyle()
-	ta.SetStyles(s)
+	ta.SetWidth(28)
 
 	ta.ShowLineNumbers = false
 
-	agent := ai.NewAgent(ctx)
+	vp := viewport.New(viewport.WithWidth(28), viewport.WithHeight(5))
 
-	vp := viewport.New(viewport.WithWidth(30), viewport.WithHeight(5))
-	vp.SetContent(fmt.Sprintf(`Welcome to the Coding Agent! Model selected: %s
-Type a prompt and press Enter to send.`, agent.Model))
+	vp.SetContent(renderStartUpScreen(130, agent.Model, currentDir))
 	vp.KeyMap.Left.SetEnabled(false)
 	vp.KeyMap.Right.SetEnabled(false)
 	vp.MouseWheelEnabled = true
 
-	ta.KeyMap.InsertNewline.SetEnabled(false)
-
 	return &MainModel{
-		textarea:         ta,
-		altscreenEnabled: true,
-		messages:         []string{},
-		Viewport:         vp,
-		senderStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-		ctx:              ctx,
-		agent:            agent,
-		title:            "New conversation",
-		err:              nil,
+		windowHeight:       10,
+		windowWidth:        30,
+		textarea:           ta,
+		altscreenEnabled:   true,
+		toggleIntialScreen: true,
+		messages:           []string{},
+		Viewport:           vp,
+		senderStyle:        lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f474e5")),
+		agentStyle:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#749ef4")),
+		ctx:                ctx,
+		agent:              agent,
+		currentDirectory:   currentDir,
+		title:              "New conversation",
+		err:                nil,
 	}
 }
 
 func (m *MainModel) Init() tea.Cmd {
 	return textarea.Blink
+}
+
+func renderStartUpScreen(width int, model string, dir string) string {
+	if width < 50 {
+		width = 50
+	}
+	startUpstr := `┏┓   ┓•      ┏┓       
+┃ ┏┓┏┫┓┏┓┏┓  ┣┫┏┓┏┓┏┓╋
+┗┛┗┛┗┻┗┛┗┗┫  ┛┗┗┫┗ ┛┗┗
+          ┛     ┛     `
+
+	startUpCard := lipgloss.NewStyle().
+		Width(30).
+		Height(10).
+		Foreground(lipgloss.Color("#749ef4")).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#f474e5")).
+		Align(lipgloss.Center, lipgloss.Center).
+		Render(startUpstr)
+
+	statsStr := fmt.Sprintf("model selected: %s\ncurrent directory: %s\n\nrecent sessions - coming soon", model, dir)
+
+	statsCard := lipgloss.NewStyle().
+		Width(width-30).
+		Height(10).
+		Foreground(lipgloss.Color("#749ef4")).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#6f686e")).
+		PaddingLeft(2).
+		PaddingRight(0).
+		Align(lipgloss.Left, lipgloss.Top).
+		Render(statsStr)
+
+	return lipgloss.JoinHorizontal(lipgloss.Left, startUpCard, statsCard)
 }

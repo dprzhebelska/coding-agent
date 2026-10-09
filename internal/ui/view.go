@@ -12,13 +12,21 @@ import (
 )
 
 func (m *MainModel) View() tea.View {
-	//m.updateTextAreaBoarder()
 	viewportView := m.Viewport.View()
-	content := viewportView + "\n" + m.getTextAreaView()
+	m.PermissionBox = m.getPermissionBoxView("placeholder question")
+	content := ""
+	if m.permissionToggle {
+		content = viewportView + "\n" + m.PermissionBox + "\n" + m.getTextAreaView()
+	} else {
+		content = viewportView + "\n" + m.getTextAreaView()
+	}
 	v := tea.NewView(content)
 	c := m.textarea.Cursor()
 	if c != nil {
 		c.Y += lipgloss.Height(viewportView) + 1
+		if m.permissionToggle {
+			c.Y += lipgloss.Height(m.PermissionBox)
+		}
 		c.X += 1
 	}
 	v.Cursor = c
@@ -122,4 +130,31 @@ func getCurrentDirWithTilde() (string, error) {
 
 	// Return full path if it's outside the home directory
 	return wd, nil
+}
+
+func checkbox(label string, checked bool) string {
+	if checked {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Render("[x] " + label)
+	}
+	return "[ ] " + label
+}
+
+func (m *MainModel) getPermissionBoxView(question string) string {
+
+	c := m.permissionChoice
+
+	t := question + "\n"
+
+	choices := lipgloss.PlaceHorizontal(30, lipgloss.Center, checkbox("Allow", c == 0)+"      "+checkbox("Deny", c == 1))
+
+	return lipgloss.NewStyle().
+		Width(m.windowWidth).
+		Height(4).
+		Foreground(lipgloss.Color("#749ef4")).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#6f686e")).
+		PaddingLeft(2).
+		PaddingRight(0).
+		Align(lipgloss.Left, lipgloss.Top).
+		Render(t + choices)
 }

@@ -17,34 +17,32 @@ type agentResponse struct {
 }
 
 func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		k := msg.String()
+		if k == "q" || k == "esc" || k == "ctrl+c" {
+			fmt.Println(m.textarea.Value())
+			m.altscreenEnabled = false
+			return m, tea.Quit
+		}
+	}
+	if msg, ok := msg.(tea.WindowSizeMsg); ok {
+		m.handleWindowResizing(msg.Width, msg.Height)
+	}
+
 	if len(m.messages) > 1 {
 		m.toggleIntialScreen = false
 	}
+
+	if m.permissionToggle {
+		m.textarea.Blur()
+		return m.handlePermissionUpdate(msg)
+	}
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.windowHeight = msg.Height
-		m.windowWidth = msg.Width
-		m.Viewport.SetWidth(msg.Width - 2) // account for border
-		m.textarea.SetWidth(msg.Width - 2) // account for border
-		m.Viewport.SetHeight(msg.Height - m.textarea.Height() - 2)
-
-		if m.toggleIntialScreen {
-			m.Viewport.SetContent(renderStartUpScreen(m.windowWidth-2, m.agent.Model, m.currentDirectory))
-		}
-
-		if len(m.messages) > 0 {
-			// Wrap content before setting it.
-			m.Viewport.SetContent(lipgloss.NewStyle().Width(m.Viewport.Width()).Render(strings.Join(m.messages, "\n")))
-		}
-		m.Viewport.GotoBottom()
 	case agentResponse:
 		if msg.Text == "" {
 			return m, m.agentReponseCmd("")
 		}
 		m.messages = append(m.messages, m.agentStyle.Render("Agent: ")+msg.Text)
-		// if msg.Title != "" {
-		// 	m.title = msg.Title
-		// }
 		m.Viewport.SetContent(lipgloss.NewStyle().Width(m.Viewport.Width()).Render(strings.Join(m.messages, "\n")))
 		return m, nil
 	case tea.PasteMsg:
@@ -53,10 +51,6 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
-			fmt.Println(m.textarea.Value())
-			m.altscreenEnabled = false
-			return m, tea.Quit
 		case "ctrl+j":
 			var cmd tea.Cmd
 			m.textarea.InsertString("\n")
@@ -95,6 +89,46 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.Viewport, cmd = m.Viewport.Update(msg)
 
+	return m, cmd
+}
+
+func (m *MainModel) handleWindowResizing(width int, height int) {
+	m.windowHeight = height
+	m.windowWidth = width
+	m.Viewport.SetWidth(width - 2) // account for border
+	m.textarea.SetWidth(width - 2) // account for border
+	vpHeight := height - m.textarea.Height() - 2
+	if m.permissionToggle {
+		vpHeight -= lipgloss.Height(m.PermissionBox)
+	}
+	m.Viewport.SetHeight(vpHeight)
+
+	if m.toggleIntialScreen {
+		m.Viewport.SetContent(renderStartUpScreen(m.windowWidth-2, m.agent.Model, m.currentDirectory))
+	}
+
+	if len(m.messages) > 0 {
+		// Wrap content before setting it.
+		m.Viewport.SetContent(lipgloss.NewStyle().Width(m.Viewport.Width()).Render(strings.Join(m.messages, "\n")))
+	}
+	m.Viewport.GotoBottom()
+}
+
+func (m *MainModel) handlePermissionUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		switch msg.String() {
+		case "left":
+			m.permissionChoice = 0
+		case "right":
+			m.permissionChoice = 1
+		case "enter":
+			// todo, send response back
+			m.permissionToggle = false
+			m.textarea.Focus()
+			m.handleWindowResizing(m.windowWidth, m.windowHeight)
+		}
+	}
+	var cmd tea.Cmd
 	return m, cmd
 }
 

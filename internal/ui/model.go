@@ -25,6 +25,9 @@ type MainModel struct {
 	currentDirectory   string
 	ctx                context.Context
 	title              string
+	PermissionBox      string
+	permissionChoice   int
+	permissionToggle   bool
 	err                error
 }
 
@@ -73,6 +76,9 @@ func InitialModel(ctx context.Context) *MainModel {
 		agent:              agent,
 		currentDirectory:   currentDir,
 		title:              "New conversation",
+		PermissionBox:      "",
+		permissionChoice:   0,
+		permissionToggle:   false,
 		err:                nil,
 	}
 }

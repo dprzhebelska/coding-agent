@@ -29,7 +29,7 @@ Skills are defined in the skills/ directory and must include a name and descript
 - Interface enhancements - select, copy/paste doesn't take up the whole terminal, show when a skill is in use, show when a model is processing
 - Thinking
 - Save conversation history + resume conversations
-- untangle ui spaghetti
+- untangle ui spaghetti 
 
 ## Bugs
 - 

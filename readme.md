@@ -2,6 +2,8 @@
 ## Objectives
 - Learn how coding agents work
 - Learn how to develop in Go
+![screenshot](readme_assets/startup page.png)
+
 
 ## Running the app
 Update model_config.json with your config first. Supported model families:

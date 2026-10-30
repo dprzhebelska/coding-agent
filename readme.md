@@ -2,7 +2,8 @@
 ## Objectives
 - Learn how coding agents work
 - Learn how to develop in Go
-![screenshot](readme_assets/startup page.png)
+
+![screenshot](readme_assets/Screenshot_20261029_213546.png)
 
 
 ## Running the app
